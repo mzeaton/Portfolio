@@ -1,0 +1,120 @@
+---
+title: "Bike data for 2023 Sep"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(here)
+```
+```{r}
+theme_set(theme_minimal())
+```
+
+
+
+```{r}
+thisfile=here("bikes.zip")
+
+df1=read_csv(thisfile) %>% clean_names()
+```
+
+
+
+
+```{r}
+df1 %>%  slice_head(n=100000) %>%
+  ggplot(aes(start_lng,start_lat)) + geom_point()
+
+```
+
+
+
+```{r}
+df2=df1 |>
+ # slice_head(n=100) |>
+  pivot_longer(
+    cols=c(started_at,ended_at),
+    names_to="start_end",
+    values_to = "t") |>
+  arrange(t) |>
+  mutate(rider_delta=(start_end =="started_at")*2-1) |> # results in +/- 1
+  mutate(riders=cumsum(rider_delta)) |>
+  relocate(t,start_end,riders, .after = rideable_type)
+```
+
+
+### EDA plots of ridership
+
+### Full month
+
+
+
+```{r}
+df2 %>%
+  # slice_sample(prop=.01) |>
+  ggplot(aes(t,riders)) +
+  geom_line() +
+  ggtitle("Riders in September")
+```
+
+### One day
+
+```{r}
+df2 %>%
+  filter(day(t)==18) %>%
+  ggplot(aes(t,riders)) +
+  geom_line() +
+  ggtitle("Riders on September 18th")
+```
+
+### Ridership with panels
+
+```{r}
+df2 %>% filter(month(t)==9) %>%
+  ggplot(aes(t,riders)) + 
+  geom_line() +
+  facet_wrap(~mday(t),scales = "free_x",ncol=7) +
+  ggtitle("Riders by day of the month")
+```
+### By weekday
+
+```{r}
+df2 %>% filter(month(t)==9) %>%
+  mutate(epi=epiweek(t),wd=wday(t,label=TRUE,week_start = 7)) %>%
+  ggplot(aes(hms::as_hms(t),riders,color=as.factor(epi))) +
+  geom_line(alpha=.7) +
+  facet_wrap(~wd,scales = "free_x",ncol=7)
+```
+
+### is the pattern similar for classic and e-bikes?
+
+```{r}
+df3=df2 %>%
+  mutate(type_riders=cumsum(rider_delta),.by=rideable_type) %>%
+  relocate(type_riders,.after=riders)
+```
+
+
+
+
+```{r}
+df3 %>% filter(month(t)==9) %>%
+  ggplot(aes(t,type_riders,color=rideable_type)) + 
+  geom_line() +
+  facet_wrap(~mday(t),scales = "free_x",ncol=7)
+```
+
+
+
+
+
+
+
+
+
+
+
+
