@@ -1,0 +1,135 @@
+---
+title: 'Portfolio Part Two: Quick Bike Analysis'
+date: "2023-12-09"
+author: "Morgan Eaton"
+output: html_notebook
+---
+
+## Introduction
+
+In this notebook I looked at the bike lane data. Since in class and in our projects the focus seemed to be around weeks or months at a time but I wanted to see if there were any patterns on the hourly or daily level. This analysis will help the company better understand what happens on an hourly level and possibly make changes to help the community who use these bikes. 
+
+### Load the necessary libraries 
+
+```{r}
+library(tidyverse) 
+library(janitor)
+library(here)
+library(openmeteo)
+```
+
+
+### Read the Data from the Data Raw folder
+```{r}
+df1 = read_csv(here("Data Raw","bikes.zip"))
+```
+
+
+## Manipulate the data to organize it accordingly
+
+###Keep track of riders over time 
+```{r}
+# create a variable from the main data set that includes the start time of the riders
+df2s=df1 %>% 
+  select(rideable_type,member_casual,
+         contains("start"),ride_id) %>% 
+  mutate(start_stop="start") %>%
+  rename(t=started_at,
+         station_name=start_station_name,
+         station_id=start_station_id,
+         lat=start_lat,
+         lng=start_lng)
+# create a variable from the main data set that includes the end time of the riders
+df2e = df1 %>%
+  select(ride_id,rideable_type,member_casual,
+         contains("end")) %>%
+  mutate(start_stop="stop") %>%
+  rename(t=ended_at,
+         station_name=end_station_name,
+         station_id=end_station_id,
+         lat=end_lat,
+         lng=end_lng)
+# combine the two variables above to create a new variable 
+df2=bind_rows(df2s,df2e) %>%
+  arrange(t) %>%
+  mutate(rider_delta=(start_stop=="start")*2-1) %>% #change in ridership 
+  mutate(riders=cumsum(rider_delta)) %>%
+  relocate(riders,.after=t)
+```
+ 
+ 
+### Plot the new variable created above to determine the number of riders over time.
+```{r}
+# Plotting 
+df2 %>% 
+  ggplot(aes(t,riders)) +
+  geom_line()
+```
+ This visualization has a lot of peaks and valleys which makes it hard to draw a conclusion. Narrowing it down to a smaller set of data will be helpful. 
+ 
+
+### Currently we are looking at 900,000 data points, how can we reduce this?
+```{r}
+df_s=df2 %>% slice_head(n=1000)
+df_s %>% 
+  ggplot(aes(t,riders)) +
+  geom_line()
+
+```
+Can't use the data above since it chops off the time. So to fix this we are going to round down (floor()) to the nearest 10 minutes and then slice.
+
+### Create a smooth graph of the data over time
+```{r}
+df_e=df_s |>
+  mutate(t_f=floor_date(t,"10 mins")) %>%
+  relocate(t_f,.after=t) %>%
+  slice_head(n=1,by=t_f)
+
+df_e %>% 
+  ggplot(aes(t,riders)) +
+  geom_line()
+```
+Based on this visualization there seems to be a peak during the day around midnight and 1am. This is a little strange to me so I want to also look at the breakdown over the course of an entire day to see if this conclusion holds true. Otherwise it would make sense to have a major decrease in riders around 3am since everyone is usually asleep at that point. 
+
+
+### Recreate the visuaization from earlier with a different method
+```{r}
+df_r=df2 |>
+  mutate(t_f=floor_date(t,"10 mins")) %>%
+  relocate(t_f,.after=t) %>%
+  slice_head(n=1,by=t_f)
+
+df_r %>% 
+  ggplot(aes(t,riders)) +
+  geom_line()
+```
+
+## Looking only at September 18th
+
+### September 18th
+
+Since looking at a whole week can be a but intimidating I selected September 18 (it was in the middle of the month) to be my focus. Below I created a graph that illustrates the riders over time on September 18th. 
+
+```{r}
+df_r=df2 |>
+  mutate(t_f=floor_date(t,"1 mins")) %>%
+  relocate(t_f,.after=t) %>%
+  slice_head(n=1,by=t_f)
+
+p1=df2 %>% 
+  filter(day(t)==18) %>%
+  ggplot(aes(t,riders)) +
+  geom_line() +
+  ggtitle("Riders on 18Sep")
+
+p1+
+  geom_line(data=df_r %>% filter(day(t)==18),
+  color="red")
+```
+There seems to be a peak around 6pm and a second peak at 8-9am. This makes sense as it follows the pattern of a 9-5 commute. 
+
+
+## Conclusion
+
+Over the day there seems to be a lot of commuters that use the bike system as a means of transportation since the two peaks during the day on September 18th were when people were getting to work and when they were leaving. However the number of people using the bikes never hit zero so there are definitely a number of people who use these bike for pleasure throughout the day.
+

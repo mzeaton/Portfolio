@@ -1,0 +1,233 @@
+---
+title: "Portfolio Part One: Airline Data"
+date: "2023-12-09"
+author: "Morgan Eaton"
+output: html_notebook
+---
+
+
+## Introduction
+
+In this notebook I looked at airline data over the last five years. This data set includes variables like the destination of the plane, where it took off from, as well as the time it landed or took off. In this notebook I hope to investigate the travel patterns of the airport close to me. Since I live in Connecticut the closest airport to me is out of Hartford, Bradley International Airport (BDL). Every year my grandparents take a flight down to Florida and they always run into issues with Bradley. In this report I hope to see if there is a better time for them to fly so that they do not have to continue to have this stress when flying. 
+
+
+### Load the necessary libraries 
+
+```{r}
+library(nycflights13)
+library(tidyverse)
+library(janitor)
+library(here)
+```
+
+
+
+### Get data from the online source.
+
+All the data used in this report is from week three on Moodle. The data can also be found in the Data Raw folder of the portfolio project. This is the airline data from 2017 to 2023. 
+
+### Load the BOT data
+
+We take advantage of the here package to get the path to the file that we stored. Here I am looking at the data from 2022 to get an idea of what this dats is and how I can use it.
+
+```{r}
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2022.zip")
+
+df2022=read_csv(thisfile) %>% clean_names()
+```
+
+
+## Initial Analysis - What Time of Year Might be Best?
+
+
+### Subsetting to data of interest - Part One
+
+Focusing on the flights from Bradley International Airport (BDL). Since this data set includes cargo flights and I want to look at passenger flights I am going to require that they flights have at least one passenger to eliminate carrgo flights.
+
+Call the resultant dataframe 'df9'.
+
+```{r}
+df9 = df2022 |> filter(passengers>0,origin=="BDL")
+```
+
+
+### Subsetting to data of interest - Part Two
+
+At first I tried to visualize a monthly count of flights using a barchart.
+
+```{r}
+df9 |>
+  ggplot(aes(month)) + geom_bar()
+```
+However this visualization is not 100% correct since by default, 'geom_bar' is counting the number of rows, where we have asked it to visualize the count by 'month'. Since the data set can have multiple flights listed in one row, counting the number of rows will not give us an accurate representation of how many flights happened each month. 
+
+Therefore the visualization I want is:
+
+```{r}
+df9 |> ggplot(aes(month)) + geom_bar(aes(weight=departures_performed))
+```
+
+Now that the visualization is corrected a few quick observations can be made. There seems to be an increase in flights around the holidays such as Easter, Thanksgiving, and Christmas. This is when my grandparents would normally fly down so my immediate suggestion to them would be to wait until after new years and fly out in January. 
+
+
+### Number of Passengers
+
+One of my grandparents main concern is people. They do not like a crowded airport or flight. So to help them further I want to see if there is a time of year where there are less passengers. Therefore I made a boxplot where the bar height is based on the number of passengers riding each month for BDL.
+
+```{r}
+df9 |> ggplot(aes(month)) + geom_bar(aes(weight=passengers))
+```
+
+### Arrivals and Departures from BDL
+
+Since my grandparents will not only be flying out of BDL but they will have to fly into BDL to get home. So I wanted to look at the passenger counts for both in and out of BDL throughout the year. 
+
+```{r}
+df10 = df2022 |> filter(passengers>0,origin=="BDL" | dest=="BDL")
+
+df10 |> ggplot(aes(month)) + geom_bar(aes(weight=passengers))
+```
+These two visualizations support my earlier claim that flying in January would still be the best month for them to fly. One consideration to make when looking at this visualization is that COVID was still a thing in early 2022 so the low number of passengers in the early part of 2022 could be a result of COVID and not a pattern of air travel. 
+
+
+
+### Does the airpline type play a roll in this?
+
+At BLD there are a few airline companies available and I wanted to see if any would be better (have less passengers on the flight). In order to figure this out I determined the loading percent for each flight( 50% loading = half the flight it empty). I then plotted this for each airline company. Since they usually fly out of BDL and into Sarasota Bradenton International Airport (SRQ) I filtered the data accordingly.
+
+```{r}
+df14 = df2022 |> filter(passengers>0,origin=="BDL" | dest=="SRQ")
+
+df11=df14 |> select(month,passengers,seats,carrier_name,dest,origin)
+
+df12 =df14 |> select(1:5, month,contains("id"))
+
+df13 = df11 |> mutate(percent_loading = passengers/seats*100)
+
+df13 |> ggplot(aes(percent_loading)) + 
+  geom_histogram()+facet_wrap(~carrier_name,scales="free_y")
+```
+
+Based on the visualization above there are some airlines that tend to load less than others. In order to stick with the common and trustworthy airlines, I'd suggest to them that they should stick with Breeze Aviation Group like they usually do. 
+
+
+
+## Looking at the data from 2017-2023
+
+### Read in the rest of the data and assign it to a corresponding variable. 
+
+```{r}
+#2017
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2017.zip")
+
+df2017=read_csv(thisfile) %>% clean_names()
+
+#2018
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2018.zip")
+
+df2018=read_csv(thisfile) %>% clean_names()
+
+#2019
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2019.zip")
+
+df2019=read_csv(thisfile) %>% clean_names()
+
+#2020
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2020.zip")
+
+df2020=read_csv(thisfile) %>% clean_names()
+
+#2021
+
+thisfile=here("Data Raw","AirplaneData","DL_SelectFields_2021.zip")
+
+df2021=read_csv(thisfile) %>% clean_names()
+
+#2022
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2022.zip")
+
+df2022=read_csv(thisfile) %>% clean_names()
+
+#2023
+
+thisfile=here("Data Raw", "AirplaneData","DL_SelectFields_2023.zip")
+
+df2023=read_csv(thisfile) %>% clean_names()
+```
+
+
+
+### Combine Dataframes into one
+
+```{r}
+dfc=
+  bind_rows(df2017) |>
+  bind_rows(df2018) |>
+  bind_rows(df2019) |>
+  bind_rows(df2020) |>
+  bind_rows(df2021) |>
+  bind_rows(df2022) |>
+  bind_rows(df2023) 
+
+```
+
+
+### Arrivals and Departures from BDL for all years
+
+```{r}
+dfc1=dfc |>
+  filter(passengers>0,origin=="BDL" | dest =="BDL")
+```
+
+
+### Total Passengers by Month over Multiyear Period
+
+This is similar to the visualization above but now it will take into account the data from all five years.
+
+```{r}
+dfc1 |> ggplot(aes(month)) +
+  geom_bar(aes(weight=passengers)) +
+  ggtitle("total passengers by month over multiyear period")
+```
+Based on this visualization January does not seem to be as low as before in terms of total passengers. Based on this graph the best time to fly would be September. This is a little early for them as they usually fly out in October but knowing flights might be better in September they might leave earlier. March-April is still a popular time for spring break and other holidays but they never travel at that time so I don't think they will have to worry about that.
+
+
+
+### Should this trend hold true?
+
+Since factors like COVID can cause a big change in flights over time I wanted to see if there were any years that might effect the accuracy of the data.
+
+```{r}
+dfc1 |> ggplot(aes(year)) +
+  geom_bar(aes(weight=passengers)) +
+  ggtitle("total passengers by year over multiyear period")
+```
+2020 does seem to have a much lower count compared to the other years which is most likely a result of COVID. This even seems to effect the number of passengers in later years as people slowly start using the airlines again. 
+
+
+### Give the passenger count over month levels for the entire period from 2017-2023
+
+```{r}
+dfc1|> 
+mutate(month_year = year+month/12) |>
+  ggplot(aes(month_year)) +
+    geom_bar(aes(weight=passengers))+
+    ggtitle("Total Passengers by Month over Multiyear Period")
+```
+Based on this visualization the later 2022 and early 2023 seem to be picking up back to the normal levels before COVID.
+
+
+## Conclusion
+
+Based on my grandparents common travel plans of wanting to leave at some point in the fall and then return sometime in the new year I would recommend the following. I would recommend leaving in September instead of their usual October, and I would still return sometime in January or early February. In terms of which Airline might be best ( least number of people so they are comfortable) I'd suggest they stick with Breeze. That way there is roughly 75% off the plane full but the plane isn't so empty they cancel the flight. I'd also warn them that it seems as though the COVID scare is going away so people are starting to fly more often so their flights (whether they like it or not) may start to get more crowded and the air travel industry is returning to normal. 
+
+
+
+
+
+
